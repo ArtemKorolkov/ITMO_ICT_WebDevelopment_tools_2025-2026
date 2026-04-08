@@ -25,11 +25,11 @@ jobs:
       - name: Install MkDocs
         run: pip install mkdocs
       - name: Build site
-        run: mkdocs build
+        run: mkdocs build -f students/K3340/Korolkov_Artem/Lr1/mkdocs.yml
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: site
+          path: students/K3340/Korolkov_Artem/Lr1/site
 
   deploy:
     needs: build
