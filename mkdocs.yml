@@ -1,0 +1,6 @@
+site_name: ITMO Web Development Report
+site_description: Отчет по практикам и лабораторной работе 1
+theme:
+  name: mkdocs
+nav:
+  - Отчет: index.md
