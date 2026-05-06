@@ -2,6 +2,7 @@ import os
 import threading
 import time
 from datetime import datetime
+from pathlib import Path
 from typing import List
 
 import psycopg2
@@ -9,7 +10,8 @@ import requests
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 
-load_dotenv()
+ROOT_DIR = Path(__file__).resolve().parents[1]
+load_dotenv(ROOT_DIR / ".env", override=True)
 
 DB_URL = os.getenv("DB_URL", "postgresql://postgres:123@localhost/time_manager_db")
 URLS = [
@@ -44,10 +46,37 @@ def parse_and_save(url: str, conn) -> None:
     slug = f"lr2-thread-{datetime.utcnow().strftime('%Y%m%d%H%M%S%f')}"
     value = (title[:200] + " " + slug).strip()[:255]
 
+    tag_column = detect_tag_column(conn)
     with conn.cursor() as cursor:
-        cursor.execute("INSERT INTO tag (name) VALUES (%s)", (value,))
+        cursor.execute(f"INSERT INTO tag ({tag_column}) VALUES (%s)", (value,))
     conn.commit()
     print(f"[threading] saved: {url} -> {title}")
+
+
+def detect_tag_column(conn) -> str:
+    with conn.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_schema = 'public' AND table_name = 'tag'
+            """
+        )
+        cols = {row[0] for row in cursor.fetchall()}
+    if "name" in cols:
+        return "name"
+    if "title" in cols:
+        return "title"
+    fallback = sorted(col for col in cols if col != "id")
+    if fallback:
+        chosen = fallback[0]
+        print(f"[threading] using fallback column '{chosen}' in table 'tag'")
+        return chosen
+    with conn.cursor() as cursor:
+        cursor.execute("ALTER TABLE tag ADD COLUMN name VARCHAR(255)")
+    conn.commit()
+    print("[threading] created missing column 'name' in table 'tag'")
+    return "name"
 
 
 def worker(urls: List[str]) -> None:
